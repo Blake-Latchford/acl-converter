@@ -12,4 +12,18 @@ class FirewallRule:
 
 
 def generate_rules(acl: Acl, node_name: str) -> list[FirewallRule]:
-    raise NotImplementedError
+    rules = []
+    for entry in acl.acls:
+        for dst_spec in entry.dst:
+            host, port = dst_spec.rsplit(":", 1)
+            if host != "*" and host != node_name:
+                continue
+            dport = "" if port == "*" else port
+            for src in entry.src:
+                rules.append(FirewallRule(
+                    type="in",
+                    action="ACCEPT",
+                    source="" if src == "*" else src,
+                    dport=dport,
+                ))
+    return rules
