@@ -1,5 +1,5 @@
 import pytest
-from plugins.module_utils.acl_parser import parse_acl
+from acl_converter.acl_parser import parse_acl
 
 
 def test_parse_minimal_acl():
@@ -42,6 +42,7 @@ def test_parse_empty_acls():
     hujson = '{"acls": []}'
     acl = parse_acl(hujson)
     assert acl.acls == []
+
 
 def test_parse_empty_root():
     hujson = '{}'

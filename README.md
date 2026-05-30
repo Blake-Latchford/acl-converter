@@ -1,103 +1,86 @@
 # acl-converter
 
-An Ansible plugin that reads a [Tailscale](https://tailscale.com/) ACL policy file (HuJSON format) and generates host-based firewall rules from it.
+A Terraform [external data source](https://registry.terraform.io/providers/hashicorp/external/latest/docs/data-sources/external) script that reads a [Tailscale](https://tailscale.com/) ACL policy file (HuJSON format) and returns firewall rules for a given node, ready to feed into [`proxmox_virtual_environment_firewall_rules`](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/resources/virtual_environment_firewall_rules).
 
 ## Why
 
-Tailscale ACLs define which nodes can reach which ports across your tailnet. But those policies live in Tailscale's control plane — if you also want to enforce equivalent rules at the Linux host firewall (iptables, nftables, firewalld, etc.), you'd normally have to maintain two separate policy sources that can drift out of sync.
-
-This plugin treats the Tailscale ACL file as the single source of truth and derives firewall rules from it automatically.
-
-## How it works
-
-1. Parse the Tailscale HuJSON ACL file (strips comments, handles trailing commas).
-2. Resolve group and tag aliases defined in the policy.
-3. Emit firewall rules corresponding to each `acl` entry — one rule per `src`/`dst`/`ports` combination.
-4. Apply them via your chosen firewall backend.
+Tailscale ACLs define which nodes can reach which ports across your tailnet. Rather than maintaining a separate firewall policy that can drift out of sync, this script treats the Tailscale ACL file as the single source of truth and derives Proxmox firewall rules from it at `terraform plan` time.
 
 ## Requirements
 
-- Ansible >= 2.14
-- Python >= 3.10 on the controller
-- A Tailscale ACL file (local path or fetched from the Tailscale API)
-
-## Installation
-```bash
-git clone https://github.com/Blake-Latchford/acl-converter.git
-cd acl-converter
-ansible-galaxy collection build
-ansible-galaxy collection install acl_converter-*.tar.gz
-```
+- Python >= 3.10
+- [`hjson`](https://pypi.org/project/hjson/) (`pip install -r requirements.txt`)
 
 ## Usage
 
-### Module: `acl_converter`
+```hcl
+data "external" "acl_rules" {
+  for_each = var.vms
 
-```yaml
-- name: Apply Tailscale ACL as host firewall rules
-  acl_converter.acl_converter:
-    acl_file: /etc/tailscale/acls.hujson
-    backend: nftables       # iptables | nftables | firewalld | ufw
-    tailscale_node: "{{ inventory_hostname }}"
-    state: present
+  program = ["python3", "${path.module}/acl_converter/main.py"]
+  query = {
+    acl_file  = var.tailscale_acl_file
+    node_name = each.value.name
+  }
+}
+
+resource "proxmox_virtual_environment_firewall_rules" "vm" {
+  for_each = var.vms
+
+  node_name = each.value.proxmox_node
+  vm_id     = each.value.vm_id
+
+  dynamic "rule" {
+    for_each = jsondecode(data.external.acl_rules[each.key].result.rules)
+    content {
+      type    = rule.value.type
+      action  = rule.value.action
+      source  = rule.value.source
+      dport   = rule.value.dport
+      proto   = rule.value.proto
+      enabled = true
+    }
+  }
+}
 ```
 
-### Fetching the ACL from the Tailscale API
+## Interface
 
-```yaml
-- name: Fetch current ACL from Tailscale API
-  acl_converter.acl_fetch:
-    api_key: "{{ tailscale_api_key }}"
-    tailnet: example.com
-  register: acl
+**stdin** — JSON query object:
 
-- name: Apply rules
-  acl_converter.acl_converter:
-    acl_content: "{{ acl.content }}"
-    backend: nftables
-    tailscale_node: "{{ inventory_hostname }}"
-    state: present
+```json
+{
+  "acl_file": "/path/to/acls.hujson",
+  "node_name": "my-vm"
+}
 ```
 
-## Module parameters
+**stdout** — flat JSON map (Terraform `external` requirement); rules are JSON-encoded as a string:
 
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `acl_file` | no | — | Path to a local HuJSON ACL file |
-| `acl_content` | no | — | Raw HuJSON string (alternative to `acl_file`) |
-| `backend` | no | `nftables` | Firewall backend: `iptables`, `nftables`, `firewalld`, `ufw` |
-| `tailscale_node` | yes | — | Hostname or Tailscale node name to filter rules for |
-| `state` | no | `present` | `present` to apply rules, `absent` to remove them |
-| `purge` | no | `false` | Remove rules not covered by the current ACL |
+```json
+{
+  "rules": "[{\"type\":\"in\",\"action\":\"ACCEPT\",\"source\":\"10.0.0.1\",\"dport\":\"5432\",\"proto\":\"tcp\"}]"
+}
+```
 
 ## Tailscale ACL format
 
-The plugin understands the standard Tailscale HuJSON ACL fields:
+The script understands the standard Tailscale HuJSON ACL fields:
 
 - `hosts` — named host aliases
 - `groups` — named groups of users/nodes
 - `tagOwners` — tag definitions
-- `acls` — the actual allow rules (`action`, `src`, `dst`, `ports`)
+- `acls` — the actual allow rules (`action`, `src`, `dst`)
 
 HuJSON extensions (C-style comments `//`, `/* */` and trailing commas) are supported.
 
-## Example
+## Development
 
-Given an ACL entry:
-
-```jsonc
-{
-  "acls": [
-    {
-      "action": "accept",
-      "src": ["tag:web"],
-      "dst": ["tag:db:5432"]
-    }
-  ]
-}
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+pytest
 ```
-
-The plugin emits an nftables rule that allows TCP port 5432 from any node tagged `web` to any node tagged `db`.
 
 ## License
 
