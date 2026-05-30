@@ -75,11 +75,6 @@ HuJSON extensions (C-style comments `//`, `/* */` and trailing commas) are suppo
 
 ## TODO
 
-### `hosts` aliases
-- [ ] Parse `hosts` block into `Acl` dataclass
-- [ ] Resolve host aliases in `src` before rule generation
-- [ ] Resolve host aliases in `dst` before node matching
-
 ### `groups`
 - [ ] Parse `groups` block into `Acl` dataclass
 - [ ] Expand group members in `src` before rule generation
