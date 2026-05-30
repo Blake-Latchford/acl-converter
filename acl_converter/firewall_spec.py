@@ -17,15 +17,20 @@ def generate_rules(acl: Acl, node_name: str) -> list[FirewallRule]:
         for dst_spec in entry.dst:
             host, port = dst_spec.rsplit(":", 1)
             resolved_host = acl.hosts.get(host, host)
-            if resolved_host != "*" and resolved_host != node_name:
+            if resolved_host in acl.groups:
+                if node_name not in acl.groups[resolved_host]:
+                    continue
+            elif resolved_host != "*" and resolved_host != node_name:
                 continue
             dport = "" if port == "*" else port
             for src in entry.src:
                 resolved_src = acl.hosts.get(src, src)
-                rules.append(FirewallRule(
-                    type="in",
-                    action="ACCEPT",
-                    source="" if resolved_src == "*" else resolved_src,
-                    dport=dport,
-                ))
+                sources = acl.groups.get(resolved_src, [resolved_src])
+                for source in sources:
+                    rules.append(FirewallRule(
+                        type="in",
+                        action="ACCEPT",
+                        source="" if source == "*" else source,
+                        dport=dport,
+                    ))
     return rules

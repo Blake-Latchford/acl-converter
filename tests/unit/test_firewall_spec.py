@@ -88,3 +88,33 @@ def test_host_alias_in_dst_does_not_match_different_ip():
     )
     rules = generate_rules(acl, "10.20.0.99")
     assert rules == []
+
+
+def test_group_in_dst_matches_member_node():
+    acl = Acl(
+        groups={"group:servers": ["10.20.0.1", "10.20.0.2"]},
+        acls=[AclEntry(action="accept", src=["10.0.0.1"], dst=["group:servers:22"])],
+    )
+    rules = generate_rules(acl, "10.20.0.1")
+    assert rules == [FirewallRule(type="in", action="ACCEPT", source="10.0.0.1", dport="22")]
+
+
+def test_group_in_dst_does_not_match_non_member():
+    acl = Acl(
+        groups={"group:servers": ["10.20.0.1", "10.20.0.2"]},
+        acls=[AclEntry(action="accept", src=["10.0.0.1"], dst=["group:servers:22"])],
+    )
+    rules = generate_rules(acl, "10.20.0.99")
+    assert rules == []
+
+
+def test_group_in_src_generates_one_rule_per_member():
+    acl = Acl(
+        groups={"group:admins": ["10.0.0.1", "10.0.0.2"]},
+        acls=[AclEntry(action="accept", src=["group:admins"], dst=["10.20.0.1:22"])],
+    )
+    rules = generate_rules(acl, "10.20.0.1")
+    assert rules == [
+        FirewallRule(type="in", action="ACCEPT", source="10.0.0.1", dport="22"),
+        FirewallRule(type="in", action="ACCEPT", source="10.0.0.2", dport="22"),
+    ]

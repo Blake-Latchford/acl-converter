@@ -48,6 +48,7 @@ def test_parse_empty_root():
     hujson = '{}'
     acl = parse_acl(hujson)
     assert acl.acls == []
+    assert acl.groups == {}
 
 
 def test_parse_hosts():
@@ -60,3 +61,9 @@ def test_parse_empty_hosts():
     hujson = '{}'
     acl = parse_acl(hujson)
     assert acl.hosts == {}
+
+
+def test_parse_groups():
+    hujson = '{"groups": {"group:servers": ["10.20.0.1", "10.20.0.2"]}, "acls": []}'
+    acl = parse_acl(hujson)
+    assert acl.groups == {"group:servers": ["10.20.0.1", "10.20.0.2"]}

@@ -13,6 +13,7 @@ class AclEntry:
 @dataclass
 class Acl:
     hosts: dict[str, str] = field(default_factory=dict)
+    groups: dict[str, list[str]] = field(default_factory=dict)
     acls: list[AclEntry] = field(default_factory=list)
 
 
@@ -23,6 +24,7 @@ def parse_acl(hujson: str) -> Acl:
 
     return Acl(
         hosts=data.get("hosts", {}),
+        groups=data.get("groups", {}),
         acls=[_parse_entry(i, e) for i, e in enumerate(data.get("acls", []))],
     )
 

@@ -75,11 +75,6 @@ HuJSON extensions (C-style comments `//`, `/* */` and trailing commas) are suppo
 
 ## TODO
 
-### `groups`
-- [ ] Parse `groups` block into `Acl` dataclass
-- [ ] Expand group members in `src` before rule generation
-- [ ] Expand group members in `dst` before node matching
-
 ### CIDR matching
 - [ ] Match node IP against CIDR ranges in `dst`
 - [ ] Match node IP against CIDR ranges in `src`
