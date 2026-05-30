@@ -61,3 +61,30 @@ def test_tag_dst_parsed_correctly():
     acl = Acl(acls=[AclEntry(action="accept", src=["10.0.0.2"], dst=["tag:web:443"])])
     rules = generate_rules(acl, "tag:web")
     assert rules == [FirewallRule(type="in", action="ACCEPT", source="10.0.0.2", dport="443")]
+
+
+def test_host_alias_in_dst_matches_node_ip():
+    acl = Acl(
+        hosts={"mydb": "10.20.0.5"},
+        acls=[AclEntry(action="accept", src=["10.0.0.2"], dst=["mydb:5432"])],
+    )
+    rules = generate_rules(acl, "10.20.0.5")
+    assert rules == [FirewallRule(type="in", action="ACCEPT", source="10.0.0.2", dport="5432")]
+
+
+def test_host_alias_in_src_resolves_to_ip():
+    acl = Acl(
+        hosts={"webserver": "10.20.0.10"},
+        acls=[AclEntry(action="accept", src=["webserver"], dst=["10.20.0.5:5432"])],
+    )
+    rules = generate_rules(acl, "10.20.0.5")
+    assert rules == [FirewallRule(type="in", action="ACCEPT", source="10.20.0.10", dport="5432")]
+
+
+def test_host_alias_in_dst_does_not_match_different_ip():
+    acl = Acl(
+        hosts={"mydb": "10.20.0.5"},
+        acls=[AclEntry(action="accept", src=["10.0.0.2"], dst=["mydb:5432"])],
+    )
+    rules = generate_rules(acl, "10.20.0.99")
+    assert rules == []

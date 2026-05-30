@@ -48,3 +48,15 @@ def test_parse_empty_root():
     hujson = '{}'
     acl = parse_acl(hujson)
     assert acl.acls == []
+
+
+def test_parse_hosts():
+    hujson = '{"hosts": {"mydb": "10.20.0.5", "webserver": "10.20.0.10"}, "acls": []}'
+    acl = parse_acl(hujson)
+    assert acl.hosts == {"mydb": "10.20.0.5", "webserver": "10.20.0.10"}
+
+
+def test_parse_empty_hosts():
+    hujson = '{}'
+    acl = parse_acl(hujson)
+    assert acl.hosts == {}
