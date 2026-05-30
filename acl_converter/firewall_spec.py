@@ -6,15 +6,18 @@ from acl_converter.acl_parser import Acl
 
 @dataclass(frozen=True)
 class FirewallRule:
-    type: str    # "in" or "out"
-    action: str  # "ACCEPT", "DROP", "REJECT"
-    source: str  # empty string means any
-    dport: str   # empty string means any
+    type: str      # "in" or "out"
+    action: str    # "ACCEPT", "DROP", "REJECT"
+    source: str = ""  # source address, empty means any (inbound)
+    dest: str = ""    # dest address, empty means any (outbound)
+    dport: str = ""   # destination port, empty means any
+    proto: str = ""   # "tcp", "udp", empty means any
 
 
 def generate_rules(acl: Acl, node_name: str) -> list[FirewallRule]:
     rules = []
     for entry in acl.acls:
+        # Inbound: node matches a dst spec
         for dst_spec in entry.dst:
             host, port = dst_spec.rsplit(":", 1)
             resolved_host = acl.hosts.get(host, host)
@@ -30,7 +33,28 @@ def generate_rules(acl: Acl, node_name: str) -> list[FirewallRule]:
                         action="ACCEPT",
                         source="" if source == "*" else source,
                         dport=dport,
+                        proto=entry.proto,
                     ))
+
+        # Outbound: node matches a src entry
+        for src in entry.src:
+            resolved_src = acl.hosts.get(src, src)
+            if not _host_matches_node(resolved_src, node_name, acl):
+                continue
+            for dst_spec in entry.dst:
+                host, port = dst_spec.rsplit(":", 1)
+                resolved_host = acl.hosts.get(host, host)
+                dests = acl.groups.get(resolved_host, [resolved_host])
+                dport = "" if port == "*" else port
+                for dest in dests:
+                    rules.append(FirewallRule(
+                        type="out",
+                        action="ACCEPT",
+                        dest="" if dest == "*" else dest,
+                        dport=dport,
+                        proto=entry.proto,
+                    ))
+
     return rules
 
 

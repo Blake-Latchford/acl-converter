@@ -67,3 +67,27 @@ def test_parse_groups():
     hujson = '{"groups": {"group:servers": ["10.20.0.1", "10.20.0.2"]}, "acls": []}'
     acl = parse_acl(hujson)
     assert acl.groups == {"group:servers": ["10.20.0.1", "10.20.0.2"]}
+
+
+def test_parse_proto_in_acl_entry():
+    hujson = '{"acls": [{"action": "accept", "proto": "tcp", "src": ["*"], "dst": ["*:80"]}]}'
+    acl = parse_acl(hujson)
+    assert acl.acls[0].proto == "tcp"
+
+
+def test_parse_missing_proto_defaults_to_empty():
+    hujson = '{"acls": [{"action": "accept", "src": ["*"], "dst": ["*:80"]}]}'
+    acl = parse_acl(hujson)
+    assert acl.acls[0].proto == ""
+
+
+def test_parse_tag_owners():
+    hujson = '{"tagOwners": {"tag:web": ["autogroup:admin"]}, "acls": []}'
+    acl = parse_acl(hujson)
+    assert acl.tag_owners == {"tag:web": ["autogroup:admin"]}
+
+
+def test_parse_empty_tag_owners():
+    hujson = '{}'
+    acl = parse_acl(hujson)
+    assert acl.tag_owners == {}

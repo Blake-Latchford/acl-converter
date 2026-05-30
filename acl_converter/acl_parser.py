@@ -8,12 +8,14 @@ class AclEntry:
     action: str
     src: list[str]
     dst: list[str]
+    proto: str = ""
 
 
 @dataclass
 class Acl:
     hosts: dict[str, str] = field(default_factory=dict)
     groups: dict[str, list[str]] = field(default_factory=dict)
+    tag_owners: dict[str, list[str]] = field(default_factory=dict)
     acls: list[AclEntry] = field(default_factory=list)
 
 
@@ -25,6 +27,7 @@ def parse_acl(hujson: str) -> Acl:
     return Acl(
         hosts=data.get("hosts", {}),
         groups=data.get("groups", {}),
+        tag_owners=data.get("tagOwners", {}),
         acls=[_parse_entry(i, e) for i, e in enumerate(data.get("acls", []))],
     )
 
@@ -35,6 +38,7 @@ def _parse_entry(index: int, entry) -> AclEntry:
             action=entry["action"],
             src=list(entry["src"]),
             dst=list(entry["dst"]),
+            proto=entry.get("proto", ""),
         )
     except (KeyError, TypeError) as e:
         raise ValueError(f"acls[{index}] is invalid: {e}") from e

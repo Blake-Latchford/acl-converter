@@ -19,7 +19,7 @@ def test_process_result_is_flat_string_map():
 def test_process_matching_rule():
     hujson = '{"acls": [{"action": "accept", "src": ["10.0.0.2"], "dst": ["10.0.0.1:80"]}]}'
     rules = json.loads(process(hujson, "10.0.0.1")["rules"])
-    assert rules == [{"type": "in", "action": "ACCEPT", "source": "10.0.0.2", "dport": "80"}]
+    assert rules == [{"type": "in", "action": "ACCEPT", "source": "10.0.0.2", "dest": "", "dport": "80", "proto": ""}]
 
 
 def test_process_no_matching_rules():

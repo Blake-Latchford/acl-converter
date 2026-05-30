@@ -73,13 +73,6 @@ The script understands the standard Tailscale HuJSON ACL fields:
 
 HuJSON extensions (C-style comments `//`, `/* */` and trailing commas) are supported.
 
-## TODO
-
-### Other
-- [ ] `proto` field on firewall rules (ACL entries can specify `tcp`/`udp`)
-- [ ] Outbound rules (node appears as `src`, generate `type: out` rules)
-- [ ] `tagOwners` / tag membership resolution
-
 ## Development
 
 ```bash

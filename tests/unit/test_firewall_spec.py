@@ -29,7 +29,7 @@ def test_wildcard_dst_matches_any_node():
 def test_wildcard_src_produces_empty_source():
     acl = Acl(acls=[AclEntry(action="accept", src=["*"], dst=["10.0.0.1:443"])])
     rules = generate_rules(acl, "10.0.0.1")
-    assert rules == [FirewallRule(type="in", action="ACCEPT", source="", dport="443")]
+    assert FirewallRule(type="in", action="ACCEPT", source="", dport="443") in rules
 
 
 def test_wildcard_port_produces_empty_dport():
@@ -135,4 +135,43 @@ def test_cidr_dst_does_not_match_node_outside_range():
 def test_cidr_src_passes_through_as_source():
     acl = Acl(acls=[AclEntry(action="accept", src=["10.0.0.0/8"], dst=["10.20.0.5:443"])])
     rules = generate_rules(acl, "10.20.0.5")
-    assert rules == [FirewallRule(type="in", action="ACCEPT", source="10.0.0.0/8", dport="443")]
+    assert FirewallRule(type="in", action="ACCEPT", source="10.0.0.0/8", dport="443") in rules
+
+
+def test_proto_passed_through_to_inbound_rule():
+    acl = Acl(acls=[AclEntry(action="accept", proto="tcp", src=["10.0.0.1"], dst=["10.0.0.2:80"])])
+    rules = generate_rules(acl, "10.0.0.2")
+    assert rules == [FirewallRule(type="in", action="ACCEPT", source="10.0.0.1", dport="80", proto="tcp")]
+
+
+def test_missing_proto_defaults_to_empty_in_rule():
+    acl = Acl(acls=[AclEntry(action="accept", src=["10.0.0.1"], dst=["10.0.0.2:80"])])
+    rules = generate_rules(acl, "10.0.0.2")
+    assert rules[0].proto == ""
+
+
+def test_node_as_src_generates_outbound_rule():
+    acl = Acl(acls=[AclEntry(action="accept", src=["10.0.0.1"], dst=["10.0.0.2:80"])])
+    rules = generate_rules(acl, "10.0.0.1")
+    assert FirewallRule(type="out", action="ACCEPT", dest="10.0.0.2", dport="80") in rules
+
+
+def test_wildcard_src_generates_outbound_rule():
+    acl = Acl(acls=[AclEntry(action="accept", src=["*"], dst=["10.0.0.2:80"])])
+    rules = generate_rules(acl, "10.0.0.1")
+    assert FirewallRule(type="out", action="ACCEPT", dest="10.0.0.2", dport="80") in rules
+
+
+def test_group_src_generates_outbound_for_member():
+    acl = Acl(
+        groups={"group:clients": ["10.0.0.1", "10.0.0.2"]},
+        acls=[AclEntry(action="accept", src=["group:clients"], dst=["10.20.0.5:443"])],
+    )
+    rules = generate_rules(acl, "10.0.0.1")
+    assert FirewallRule(type="out", action="ACCEPT", dest="10.20.0.5", dport="443") in rules
+
+
+def test_proto_passed_through_to_outbound_rule():
+    acl = Acl(acls=[AclEntry(action="accept", proto="udp", src=["10.0.0.1"], dst=["10.0.0.2:53"])])
+    rules = generate_rules(acl, "10.0.0.1")
+    assert FirewallRule(type="out", action="ACCEPT", dest="10.0.0.2", dport="53", proto="udp") in rules
