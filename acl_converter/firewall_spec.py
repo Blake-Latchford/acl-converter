@@ -19,7 +19,8 @@ def generate_rules(acl: Acl, node_name: str) -> list[FirewallRule]:
     for entry in acl.acls:
         rules.extend(_inbound_rules(acl, entry, node_name))
         rules.extend(_outbound_rules(acl, entry, node_name))
-    return rules
+    # Use a dict with empty values here to preserve order.
+    return list(dict.fromkeys(rules))
 
 
 def _inbound_rules(acl: Acl, entry: AclEntry, node_name: str) -> list[FirewallRule]:

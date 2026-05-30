@@ -265,3 +265,24 @@ def test_group_with_email_members_does_not_match_as_dst_node():
     )
     rules = generate_rules(acl, "10.0.0.2")
     assert rules == []
+
+
+# --- deduplication ---
+
+def test_duplicate_acl_entries_produce_single_rule():
+    acl = Acl(acls=[
+        AclEntry(action="accept", src=["10.0.0.1"], dst=["10.0.0.2:80"]),
+        AclEntry(action="accept", src=["10.0.0.1"], dst=["10.0.0.2:80"]),
+    ])
+    rules = generate_rules(acl, "10.0.0.2")
+    assert rules.count(FirewallRule(type="in", action="ACCEPT", source="10.0.0.1", dport="80")) == 1
+
+
+def test_node_in_multiple_groups_produces_single_rule():
+    # Node 10.0.0.1 appears in both groups — should not generate duplicate inbound rules
+    acl = Acl(
+        groups={"group:a": ["10.0.0.1"], "group:b": ["10.0.0.1"]},
+        acls=[AclEntry(action="accept", src=["group:a", "group:b"], dst=["10.0.0.2:80"])],
+    )
+    rules = generate_rules(acl, "10.0.0.2")
+    assert rules.count(FirewallRule(type="in", action="ACCEPT", source="10.0.0.1", dport="80")) == 1
