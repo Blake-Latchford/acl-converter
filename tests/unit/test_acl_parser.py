@@ -57,6 +57,13 @@ def test_parse_hosts():
     assert acl.hosts == {"mydb": "10.20.0.5", "webserver": "10.20.0.10"}
 
 
+def test_parse_hosts_with_cidr_notation():
+    # Real ACL files use CIDR notation for hosts
+    hujson = '{"hosts": {"postgresql.internal": "10.20.0.2/32", "webservers.internal": "10.20.10.1/29"}, "acls": []}'
+    acl = parse_acl(hujson)
+    assert acl.hosts == {"postgresql.internal": "10.20.0.2/32", "webservers.internal": "10.20.10.1/29"}
+
+
 def test_parse_empty_hosts():
     hujson = '{}'
     acl = parse_acl(hujson)
