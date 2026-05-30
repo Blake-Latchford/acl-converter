@@ -12,6 +12,7 @@ class AclEntry:
 
 @dataclass
 class Acl:
+    hosts: dict[str, str] = field(default_factory=dict)
     acls: list[AclEntry] = field(default_factory=list)
 
 
@@ -20,7 +21,10 @@ def parse_acl(hujson: str) -> Acl:
     if not isinstance(data, dict):
         raise ValueError("ACL must be a JSON object")
 
-    return Acl(acls=[_parse_entry(i, e) for i, e in enumerate(data.get("acls", []))])
+    return Acl(
+        hosts=data.get("hosts", {}),
+        acls=[_parse_entry(i, e) for i, e in enumerate(data.get("acls", []))],
+    )
 
 
 def _parse_entry(index: int, entry) -> AclEntry:
