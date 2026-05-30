@@ -37,7 +37,6 @@ resource "proxmox_virtual_environment_firewall_rules" "vm" {
       action  = rule.value.action
       source  = rule.value.source
       dport   = rule.value.dport
-      proto   = rule.value.proto
       enabled = true
     }
   }
@@ -59,7 +58,7 @@ resource "proxmox_virtual_environment_firewall_rules" "vm" {
 
 ```json
 {
-  "rules": "[{\"type\":\"in\",\"action\":\"ACCEPT\",\"source\":\"10.0.0.1\",\"dport\":\"5432\",\"proto\":\"tcp\"}]"
+  "rules": "[{\"type\":\"in\",\"action\":\"ACCEPT\",\"source\":\"10.0.0.1\",\"dport\":\"5432\"}]"
 }
 ```
 
@@ -73,6 +72,27 @@ The script understands the standard Tailscale HuJSON ACL fields:
 - `acls` — the actual allow rules (`action`, `src`, `dst`)
 
 HuJSON extensions (C-style comments `//`, `/* */` and trailing commas) are supported.
+
+## TODO
+
+### `hosts` aliases
+- [ ] Parse `hosts` block into `Acl` dataclass
+- [ ] Resolve host aliases in `src` before rule generation
+- [ ] Resolve host aliases in `dst` before node matching
+
+### `groups`
+- [ ] Parse `groups` block into `Acl` dataclass
+- [ ] Expand group members in `src` before rule generation
+- [ ] Expand group members in `dst` before node matching
+
+### CIDR matching
+- [ ] Match node IP against CIDR ranges in `dst`
+- [ ] Match node IP against CIDR ranges in `src`
+
+### Other
+- [ ] `proto` field on firewall rules (ACL entries can specify `tcp`/`udp`)
+- [ ] Outbound rules (node appears as `src`, generate `type: out` rules)
+- [ ] `tagOwners` / tag membership resolution
 
 ## Development
 
