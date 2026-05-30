@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv4Network, AddressValueError
 
-from acl_converter.acl_parser import Acl
+from acl_converter.acl_parser import Acl, AclEntry
 
 
 @dataclass(frozen=True)
@@ -17,45 +17,56 @@ class FirewallRule:
 def generate_rules(acl: Acl, node_name: str) -> list[FirewallRule]:
     rules = []
     for entry in acl.acls:
-        # Inbound: node matches a dst spec
-        for dst_spec in entry.dst:
-            host, port = dst_spec.rsplit(":", 1)
-            resolved_host = acl.hosts.get(host, host)
-            if not _host_matches_node(resolved_host, node_name, acl):
-                continue
-            dport = "" if port == "*" else port
-            for src in entry.src:
-                resolved_src = acl.hosts.get(src, src)
-                sources = acl.groups.get(resolved_src, [resolved_src])
-                for source in sources:
-                    rules.append(FirewallRule(
-                        type="in",
-                        action="ACCEPT",
-                        source="" if source == "*" else source,
-                        dport=dport,
-                        proto=entry.proto,
-                    ))
-
-        # Outbound: node matches a src entry
-        for src in entry.src:
-            resolved_src = acl.hosts.get(src, src)
-            if not _host_matches_node(resolved_src, node_name, acl):
-                continue
-            for dst_spec in entry.dst:
-                host, port = dst_spec.rsplit(":", 1)
-                resolved_host = acl.hosts.get(host, host)
-                dests = acl.groups.get(resolved_host, [resolved_host])
-                dport = "" if port == "*" else port
-                for dest in dests:
-                    rules.append(FirewallRule(
-                        type="out",
-                        action="ACCEPT",
-                        dest="" if dest == "*" else dest,
-                        dport=dport,
-                        proto=entry.proto,
-                    ))
-
+        rules.extend(_inbound_rules(acl, entry, node_name))
+        rules.extend(_outbound_rules(acl, entry, node_name))
     return rules
+
+
+def _inbound_rules(acl: Acl, entry: AclEntry, node_name: str) -> list[FirewallRule]:
+    rules = []
+    for dst_spec in entry.dst:
+        host, dport = _parse_dst_spec(dst_spec)
+        resolved_host = acl.hosts.get(host, host)
+        if not _host_matches_node(resolved_host, node_name, acl):
+            continue
+        for source in _expand_src(acl, entry.src):
+            rules.append(FirewallRule(type="in", action="ACCEPT", source=source, dport=dport, proto=entry.proto))
+    return rules
+
+
+def _outbound_rules(acl: Acl, entry: AclEntry, node_name: str) -> list[FirewallRule]:
+    rules = []
+    for src in entry.src:
+        resolved_src = acl.hosts.get(src, src)
+        if not _host_matches_node(resolved_src, node_name, acl):
+            continue
+        for dest, dport in _expand_dst(acl, entry.dst):
+            rules.append(FirewallRule(type="out", action="ACCEPT", dest=dest, dport=dport, proto=entry.proto))
+    return rules
+
+
+def _parse_dst_spec(dst_spec: str) -> tuple[str, str]:
+    host, port = dst_spec.rsplit(":", 1)
+    return host, "" if port == "*" else port
+
+
+def _expand_src(acl: Acl, srcs: list[str]) -> list[str]:
+    sources = []
+    for src in srcs:
+        resolved = acl.hosts.get(src, src)
+        members = acl.groups.get(resolved, [resolved])
+        sources.extend("" if m == "*" else m for m in members)
+    return sources
+
+
+def _expand_dst(acl: Acl, dst_specs: list[str]) -> list[tuple[str, str]]:
+    results = []
+    for dst_spec in dst_specs:
+        host, dport = _parse_dst_spec(dst_spec)
+        resolved = acl.hosts.get(host, host)
+        members = acl.groups.get(resolved, [resolved])
+        results.extend(("" if m == "*" else m, dport) for m in members)
+    return results
 
 
 def _host_matches_node(host: str, node_name: str, acl: Acl) -> bool:
