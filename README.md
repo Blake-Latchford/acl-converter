@@ -75,10 +75,6 @@ HuJSON extensions (C-style comments `//`, `/* */` and trailing commas) are suppo
 
 ## TODO
 
-### CIDR matching
-- [ ] Match node IP against CIDR ranges in `dst`
-- [ ] Match node IP against CIDR ranges in `src`
-
 ### Other
 - [ ] `proto` field on firewall rules (ACL entries can specify `tcp`/`udp`)
 - [ ] Outbound rules (node appears as `src`, generate `type: out` rules)

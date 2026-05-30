@@ -118,3 +118,21 @@ def test_group_in_src_generates_one_rule_per_member():
         FirewallRule(type="in", action="ACCEPT", source="10.0.0.1", dport="22"),
         FirewallRule(type="in", action="ACCEPT", source="10.0.0.2", dport="22"),
     ]
+
+
+def test_cidr_dst_matches_node_in_range():
+    acl = Acl(acls=[AclEntry(action="accept", src=["10.0.0.1"], dst=["10.20.0.0/24:80"])])
+    rules = generate_rules(acl, "10.20.0.5")
+    assert rules == [FirewallRule(type="in", action="ACCEPT", source="10.0.0.1", dport="80")]
+
+
+def test_cidr_dst_does_not_match_node_outside_range():
+    acl = Acl(acls=[AclEntry(action="accept", src=["10.0.0.1"], dst=["10.20.0.0/24:80"])])
+    rules = generate_rules(acl, "10.30.0.5")
+    assert rules == []
+
+
+def test_cidr_src_passes_through_as_source():
+    acl = Acl(acls=[AclEntry(action="accept", src=["10.0.0.0/8"], dst=["10.20.0.5:443"])])
+    rules = generate_rules(acl, "10.20.0.5")
+    assert rules == [FirewallRule(type="in", action="ACCEPT", source="10.0.0.0/8", dport="443")]

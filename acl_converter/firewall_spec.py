@@ -1,6 +1,7 @@
 from dataclasses import dataclass
+from ipaddress import IPv4Address, IPv4Network, AddressValueError
 
-from acl_converter.acl_parser import Acl, AclEntry
+from acl_converter.acl_parser import Acl
 
 
 @dataclass(frozen=True)
@@ -17,10 +18,7 @@ def generate_rules(acl: Acl, node_name: str) -> list[FirewallRule]:
         for dst_spec in entry.dst:
             host, port = dst_spec.rsplit(":", 1)
             resolved_host = acl.hosts.get(host, host)
-            if resolved_host in acl.groups:
-                if node_name not in acl.groups[resolved_host]:
-                    continue
-            elif resolved_host != "*" and resolved_host != node_name:
+            if not _host_matches_node(resolved_host, node_name, acl):
                 continue
             dport = "" if port == "*" else port
             for src in entry.src:
@@ -34,3 +32,14 @@ def generate_rules(acl: Acl, node_name: str) -> list[FirewallRule]:
                         dport=dport,
                     ))
     return rules
+
+
+def _host_matches_node(host: str, node_name: str, acl: Acl) -> bool:
+    if host == "*":
+        return True
+    if host in acl.groups:
+        return node_name in acl.groups[host]
+    try:
+        return IPv4Address(node_name) in IPv4Network(host, strict=False)
+    except (AddressValueError, ValueError):
+        return host == node_name
