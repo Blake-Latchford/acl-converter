@@ -7,7 +7,9 @@ from acl_converter.firewall_spec import generate_rules
 
 
 def process(acl_content: str, node_name: str) -> dict[str, str]:
-    raise NotImplementedError
+    acl = parse_acl(acl_content)
+    rules = generate_rules(acl, node_name)
+    return {"rules": json.dumps([dataclasses.asdict(r) for r in rules])}
 
 
 def main(stdin=None, stdout=None):
